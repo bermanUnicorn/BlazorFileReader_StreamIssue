@@ -1,0 +1,88 @@
+﻿@page "/"
+@using Blazor.FileReader
+@using System.Text
+@using System.Threading.Tasks
+@inject IFileReaderService fileReaderService
+@inject IJSRuntime js
+
+@code {
+    private IFileReaderRef FileReaderRef;
+    private ElementReference inputElementRef;
+
+    /// <summary>
+    /// Limitation that can be provided by MaximumReceiveMessageSize or smth
+    /// Must be like 1/2 1/4 from file size to test
+    /// </summary>
+    private int readBufferSize = 24000;
+
+    protected override void OnAfterRender(bool isFirstRender)
+    {
+        FileReaderRef = fileReaderService.CreateReference(inputElementRef);
+    }
+
+    private async Task ReadFileAsWorksNow()
+    {
+        var file = (await FileReaderRef.EnumerateFilesAsync()).First();
+
+        var fileInfo = await file.ReadFileInfoAsync();
+
+        var sb = new StringBuilder();
+
+        var readedBytes = 0;
+
+        await using (var stream = await file.OpenReadAsync())
+        {
+            while (true)
+            {
+                var buffer = new byte[readBufferSize];
+                readedBytes += await stream.ReadAsync(buffer, 0, readBufferSize);
+
+                if (readedBytes >= fileInfo.Size)
+                {
+                    break;
+                }
+
+                sb.Append(Encoding.UTF8.GetString(buffer));
+            }
+        }
+
+        _ = js.InvokeAsync<object>("console.log", sb.ToString());
+    }
+
+    private async Task ReadFileAsMustWork()
+    {
+        var file = (await FileReaderRef.EnumerateFilesAsync()).First();
+
+        var fileInfo = await file.ReadFileInfoAsync();
+
+        var buffer = new byte[fileInfo.Size];
+
+        var readedBytes = 0;
+
+        await using (var stream = await file.OpenReadAsync())
+        {
+            while (true)
+            {
+                readedBytes += await stream.ReadAsync(buffer, readedBytes, readBufferSize); 
+                //or readedBytes += await stream.ReadAsync(buffer, readedBytes,  Math.Min(readBufferSize, (int)fileInfo.Size - readedBytes)) 
+                //to prevent Out Of Bounds such as System.AggregateException with FileStream
+
+                //eternal loop after half of stream
+                if (readedBytes >= fileInfo.Size)
+                {
+                    break;
+                }
+            }
+        }
+
+        _ = js.InvokeAsync<object>("console.log", Encoding.UTF8.GetString(buffer));
+    }
+}
+
+<h1>Hello, world!</h1>
+
+<input type="file" @ref=inputElementRef />
+<button @onclick=ReadFileAsWorksNow>ReadFileAsWorksNow</button>
+<button @onclick=ReadFileAsMustWork>ReadFileAsMustWork</button>
+
+Welcome to your new app.
