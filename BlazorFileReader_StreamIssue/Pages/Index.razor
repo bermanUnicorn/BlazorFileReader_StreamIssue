@@ -63,9 +63,9 @@
         {
             while (true)
             {
-                readedBytes += await stream.ReadAsync(buffer, readedBytes, readBufferSize); 
-                //or readedBytes += await stream.ReadAsync(buffer, readedBytes,  Math.Min(readBufferSize, (int)fileInfo.Size - readedBytes)) 
-                //to prevent Out Of Bounds such as System.AggregateException with FileStream
+                readedBytes += await stream.ReadAsync(buffer, readedBytes, Math.Min(readBufferSize, (int)fileInfo.Size - readedBytes));
+                //or readedBytes += await stream.ReadAsync(buffer, readedBytes, readBufferSize); 
+                //if we are not scared by Out Of Bounds such as System.AggregateException with FileStream
 
                 //eternal loop after half of stream
                 if (readedBytes >= fileInfo.Size)
